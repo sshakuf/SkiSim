@@ -9,7 +9,7 @@ from OpenGL.GLU import *
 # Load CSV files
 def initialize():
     global accelerometer_x, accelerometer_y, accelerometer_z, gyro_x, gyro_y, gyro_z, pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, yaw, pitch, roll, dt
-    base_path = "../2025-02-19_16-01-54/"
+    base_path = "./"
     df_accel = pd.read_csv(base_path + "Accelerometer.csv")
     df_gyro = pd.read_csv(base_path + "Gyroscope.csv")
     

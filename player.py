@@ -6,7 +6,8 @@ import numpy as np
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-from logic import initialize, start, run, getLenght
+#from logic import initialize, start, run, getLenght
+import MotionVisualizer
 
 # Flags for enabling/disabling features
 ENABLE_GRID = True
@@ -23,9 +24,19 @@ zoom_level = 0
 # Sample index control
 current_index = 0
 
+motion_visualizers = []
+last_index = 0
 
 # Initialize Pygame and OpenGL
 def init_3d():
+    global motion_visualizers, last_index
+
+    motion_visualizers.append(MotionVisualizer.MotionVisualizer("Accelerometer.csv", "Gyroscope.csv"))
+
+    for motion_visualizer in motion_visualizers:
+        last_index = max(last_index, motion_visualizer.get_length())
+    
+
     pygame.init()
     display = (800, 600)
     pygame.display.set_mode(display, pygame.DOUBLEBUF | pygame.OPENGL)
@@ -36,9 +47,12 @@ def init_3d():
 
 
 init_3d()
+
 # Initialize logic
-initialize()
-start()
+for motion_visualizer in motion_visualizers:
+    motion_visualizer.initialize()
+    motion_visualizer.start()
+
 
 
 def handle_input():
@@ -76,7 +90,7 @@ def handle_input():
             elif event.key == pygame.K_COMMA:
                 current_index = max(0, current_index - 1)  # Go back
             elif event.key == pygame.K_PERIOD:
-                current_index = min(getLenght() - 1, current_index + 1)  # Go forward
+                current_index = min(last_index - 1, current_index + 1)  # Go forward
 
 def move_camera_relative(distance):
     global camera_offset, camera_rotation
@@ -111,13 +125,12 @@ def draw_grid():
 
 
 def animate_3d():
-    global PAUSED, current_index
+    global PAUSED, current_index, last_index, motion_visualizers, camera_offset, camera_rotation, zoom_level
     
-    maxindex = getLenght()
     while True:
         handle_input()
 
-        if current_index >= maxindex:
+        if current_index >= last_index:
             current_index = 0  # Restart animation and pause at first frame
             pos_x, pos_y, pos_z = 0.0, 0.0, 0.0
             vel_x, vel_y, vel_z = 0.0, 0.0, 0.0
@@ -134,10 +147,11 @@ def animate_3d():
         glTranslatef(0, 0, zoom_level)
     
         draw_grid()
-        draw_text(f"Sample {current_index+1} / {maxindex}", 10, 10)
+        draw_text(f"Sample {current_index+1} / {last_index}", 10, 10)
         draw_text(f"Camera Position: {camera_offset}, Rotation: {camera_rotation}, Zoom {zoom_level}", 10, 30)
         
-        run(current_index, PAUSED)  # Run logic
+        for motion_visualizer in motion_visualizers:
+            motion_visualizer.run(current_index, PAUSED)  # Run logic
 
         pygame.display.flip()
         if not PAUSED:
