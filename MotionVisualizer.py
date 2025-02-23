@@ -97,7 +97,7 @@ class UDPHandler:
         self.UDP_IP = ip
         self.UDP_PORT = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self. motion_data = {
+        self.motion_data = {
             "legs": {
                 "left": {
                     "pitch": 0, "yaw": 0, "roll": 0,
@@ -124,7 +124,7 @@ class UDPHandler:
         self.send_data(self.motion_data)
 
 
-    def setLegData(isLeft, self, yaw, pitch, roll, accX, accY, accZ):
+    def setLegData(self, isLeft, yaw, pitch, roll, accX, accY, accZ):
         # update motion_data
         if isLeft:
             leg = "left"
