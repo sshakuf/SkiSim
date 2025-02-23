@@ -31,7 +31,8 @@ last_index = 0
 def init_3d():
     global motion_visualizers, last_index
 
-    motion_visualizers.append(MotionVisualizer.MotionVisualizer("Accelerometer.csv", "Gyroscope.csv"))
+    motion_visualizers.append(MotionVisualizer.MotionVisualizer("data/Accelerometer.csv", "data/Gyroscope.csv", True))
+    motion_visualizers.append(MotionVisualizer.MotionVisualizer("data/Accelerometer2.csv", "data/Gyroscope2.csv", False))
 
     for motion_visualizer in motion_visualizers:
         last_index = max(last_index, motion_visualizer.get_length())
@@ -132,10 +133,9 @@ def animate_3d():
 
         if current_index >= last_index:
             current_index = 0  # Restart animation and pause at first frame
-            pos_x, pos_y, pos_z = 0.0, 0.0, 0.0
-            vel_x, vel_y, vel_z = 0.0, 0.0, 0.0
-            yaw, pitch, roll = 0.0, 0.0, 0.0
-            acc_x, acc_y, acc_z = 0.0, 0.0, 0.0
+            
+            for motion_visualizer in motion_visualizers:
+                motion_visualizer.reset_state()
             PAUSED = True
         
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -152,6 +152,10 @@ def animate_3d():
         
         for motion_visualizer in motion_visualizers:
             motion_visualizer.run(current_index, PAUSED)  # Run logic
+
+        for motion_visualizer in motion_visualizers:
+            motion_visualizer.afterRun(current_index, PAUSED)  # Run logic
+
 
         pygame.display.flip()
         if not PAUSED:
