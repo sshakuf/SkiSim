@@ -5,15 +5,22 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import socket
 import json
+from UDPHandler import UDPHandler
 
 class MotionVisualizer:
-    def __init__(self, accel_path, gyro_path, isLeftLeg):
-        self.dt = 0.05  # Time step
+    def __init__(self, accel_path, gyro_path, isLeftLeg, udpHandler, dt=0.01, rotation_scale=1.2, acc_scale=1.0):
+        self.dt = dt  # Time step remains unchanged
+        self.rotation_scale = rotation_scale  # Scale factor for yaw, pitch, and roll updates
+        self.acc_scale = acc_scale            # Scale factor for accelerometer updates
         self.load_data(accel_path, gyro_path)
         self.reset_state()
         self.isLeftLeg = isLeftLeg
         # Create a UDP handler instance
-        self.udp_handler = UDPHandler()
+        self.udp_handler = udpHandler
+        self.start_index = 0
+
+    def set_start_index(self, index):
+        self.start_index = index
 
     def initialize(self):
         self.reset_state()
@@ -25,6 +32,14 @@ class MotionVisualizer:
     def load_data(self, accel_path, gyro_path):
         df_accel = pd.read_csv(accel_path)
         df_gyro = pd.read_csv(gyro_path)
+        
+        self.time = df_accel["time"].values
+        self.length = len(df_accel)
+
+        # Calculate and print the dt between the two initial samples (if available)
+        if len(self.time) > 1:
+            computed_dt = self.time[1] - self.time[0]
+            print("Computed dt between initial samples:", computed_dt)
 
         self.accelerometer_x = df_accel["x"].values
         self.accelerometer_y = df_accel["y"].values
@@ -44,25 +59,42 @@ class MotionVisualizer:
         self.acc_x, self.acc_y, self.acc_z = 0.0, 0.0, 0.0
 
     def run(self, index, pause):
-        if not pause and index < len(self.accelerometer_x):
-            self.acc_x = self.accelerometer_x[index]
-            self.acc_y = self.accelerometer_y[index]
-            self.acc_z = self.accelerometer_z[index]
+        curr_index = self.start_index + index
+        if not pause and curr_index < len(self.accelerometer_x):
+            # Scale accelerometer data
+            self.acc_x = self.accelerometer_x[curr_index] * self.acc_scale
+            self.acc_y = self.accelerometer_y[curr_index] * self.acc_scale
+            self.acc_z = self.accelerometer_z[curr_index] * self.acc_scale
 
+            # Update velocities with scaled acceleration
             self.vel_x += self.acc_x * self.dt
             self.vel_y += self.acc_y * self.dt
             self.vel_z += self.acc_z * self.dt
 
+            # Update positions
             self.pos_x += self.vel_x * self.dt
             self.pos_y += self.vel_y * self.dt
             self.pos_z += self.vel_z * self.dt
 
-            self.yaw += self.gyro_z[index] * self.dt
-            self.pitch += self.gyro_y[index] * self.dt
-            self.roll += self.gyro_x[index] * self.dt
+            # Convert gyroscope data from radians to degrees (1 radian = 180/π degrees)
+            rad_to_deg = 180.0 / 3.14159265358979
+            gyro_x_deg = self.gyro_x[curr_index] * rad_to_deg
+            gyro_y_deg = self.gyro_y[curr_index] * rad_to_deg
+            gyro_z_deg = self.gyro_z[curr_index] * rad_to_deg
+            
+            # Update angles with converted gyroscope data (now in degrees/second)
+            self.yaw   += gyro_z_deg * self.dt * self.rotation_scale
+            self.pitch += gyro_y_deg * self.dt * self.rotation_scale
+            self.roll  += gyro_x_deg * self.dt * self.rotation_scale
+
+            # Normalize angles to be within [-180, 180]
+            self.yaw   = ((self.yaw + 180) % 360) - 180
+            self.pitch = ((self.pitch + 180) % 360) - 180
+            self.roll  = ((self.roll + 180) % 360) - 180
 
         self.draw_cone_with_line()
         self.udp_handler.setLegData(self.isLeftLeg, self.yaw, self.pitch, self.roll, self.acc_x, self.acc_y, self.acc_z)
+
 
     def afterRun(self, index, pause):
         if self.isLeftLeg:
@@ -85,56 +117,3 @@ class MotionVisualizer:
         glEnd()
 
         glPopMatrix()
-
-    
-
-
-# UDP Handler Class
-class UDPHandler:
-    """Handles UDP communication for motion data."""
-    
-    def __init__(self, ip="127.0.0.1", port=5005):
-        self.UDP_IP = ip
-        self.UDP_PORT = port
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.motion_data = {
-            "legs": {
-                "left": {
-                    "pitch": 0, "yaw": 0, "roll": 0,
-                    "accX": 0, "accY": 0, "accZ": 0
-                },
-                "right": {
-                    "pitch": 0, "yaw": 0, "roll": 0,
-                    "accX": 0, "accY": 0, "accZ": 0
-                }
-            }
-        }
-
-    def send_data(self, data):
-        """Send JSON data via UDP."""
-        json_data = json.dumps(data)
-        self.sock.sendto(json_data.encode(), (self.UDP_IP, self.UDP_PORT))
-    
-    def update_connection(self, ip, port):
-        """Update UDP IP and port settings."""
-        self.UDP_IP = ip
-        self.UDP_PORT = int(port)
-
-    def sendLegData(self):
-        self.send_data(self.motion_data)
-
-
-    def setLegData(self, isLeft, yaw, pitch, roll, accX, accY, accZ):
-        # update motion_data
-        if isLeft:
-            leg = "left"
-        else:
-            leg = "right"
-
-        self.motion_data["legs"][leg]["pitch"] = pitch
-        self.motion_data["legs"][leg]["yaw"] = yaw
-        self.motion_data["legs"][leg]["roll"] = roll    
-        self.motion_data["legs"][leg]["accX"] = accX
-        self.motion_data["legs"][leg]["accY"] = accY
-        self.motion_data["legs"][leg]["accZ"] = accZ
-
