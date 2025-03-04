@@ -8,16 +8,18 @@ import json
 from UDPHandler import UDPHandler
 
 class MotionVisualizer:
-    def __init__(self, accel_path, gyro_path, isLeftLeg, udpHandler, dt=0.01, rotation_scale=1.2, acc_scale=1.0):
+    def __init__(self, accel_path, gyro_path, gravity_path, isLeftLeg, udpHandler, dt=0.01, rotation_scale=1.2, acc_scale=1.0):
         self.dt = dt  # Time step remains unchanged
         self.rotation_scale = rotation_scale  # Scale factor for yaw, pitch, and roll updates
         self.acc_scale = acc_scale            # Scale factor for accelerometer updates
-        self.load_data(accel_path, gyro_path)
-        self.reset_state()
+        self.gravity_path = gravity_path      # Path to gravity CSV file (mandatory)
         self.isLeftLeg = isLeftLeg
-        # Create a UDP handler instance
         self.udp_handler = udpHandler
         self.start_index = 0
+        
+        # Load the data files
+        self.load_data(accel_path, gyro_path, gravity_path)
+        self.reset_state()
 
     def set_start_index(self, index):
         self.start_index = index
@@ -29,10 +31,17 @@ class MotionVisualizer:
     def start(self):
         pass
 
-    def load_data(self, accel_path, gyro_path):
+    def load_data(self, accel_path, gyro_path, gravity_path):
+        # Load accelerometer data
         df_accel = pd.read_csv(accel_path)
+        
+        # Load gyroscope data
         df_gyro = pd.read_csv(gyro_path)
         
+        # Load gravity data (mandatory)
+        df_gravity = pd.read_csv(gravity_path)
+        
+        # Store time values
         self.time = df_accel["time"].values
         self.length = len(df_accel)
 
@@ -41,13 +50,22 @@ class MotionVisualizer:
             computed_dt = self.time[1] - self.time[0]
             print("Computed dt between initial samples:", computed_dt)
 
+        # Store accelerometer values
         self.accelerometer_x = df_accel["x"].values
         self.accelerometer_y = df_accel["y"].values
         self.accelerometer_z = df_accel["z"].values
 
+        # Store gyroscope values
         self.gyro_x = df_gyro["x"].values
         self.gyro_y = df_gyro["y"].values
         self.gyro_z = df_gyro["z"].values
+        
+        # Store gravity values
+        self.gravity_x = df_gravity["x"].values[:self.length]
+        self.gravity_y = df_gravity["y"].values[:self.length]
+        self.gravity_z = df_gravity["z"].values[:self.length]
+        
+        print(f"Loaded gravity data from {gravity_path}")
 
     def get_length(self):
         return len(self.accelerometer_x)
@@ -57,6 +75,7 @@ class MotionVisualizer:
         self.vel_x, self.vel_y, self.vel_z = 0.0, 0.0, 0.0
         self.yaw, self.pitch, self.roll = 0.0, 0.0, 0.0
         self.acc_x, self.acc_y, self.acc_z = 0.0, 0.0, 0.0
+        self.grav_x, self.grav_y, self.grav_z = 0.0, 0.0, 0.0
 
     def run(self, index, pause):
         curr_index = self.start_index + index
@@ -65,6 +84,11 @@ class MotionVisualizer:
             self.acc_x = self.accelerometer_x[curr_index] * self.acc_scale
             self.acc_y = self.accelerometer_y[curr_index] * self.acc_scale
             self.acc_z = self.accelerometer_z[curr_index] * self.acc_scale
+            
+            # Get gravity data for current index
+            self.grav_x = self.gravity_x[curr_index]
+            self.grav_y = self.gravity_y[curr_index]
+            self.grav_z = self.gravity_z[curr_index]
 
             # Update velocities with scaled acceleration
             self.vel_x += self.acc_x * self.dt
@@ -93,8 +117,10 @@ class MotionVisualizer:
             self.roll  = ((self.roll + 180) % 360) - 180
 
         self.draw_cone_with_line()
-        self.udp_handler.setLegData(self.isLeftLeg, self.yaw, self.pitch, self.roll, self.acc_x, self.acc_y, self.acc_z)
-
+        # Send leg data including gravity
+        self.udp_handler.setLegData(self.isLeftLeg, self.yaw, self.pitch, self.roll, 
+                                   self.acc_x, self.acc_y, self.acc_z,
+                                   self.grav_x, self.grav_y, self.grav_z)
 
     def afterRun(self, index, pause):
         if self.isLeftLeg:
