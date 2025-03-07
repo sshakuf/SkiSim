@@ -63,10 +63,10 @@ def init_3d():
     global motion_visualizers, last_index, udpHandler, deltaTime, slider, display_size, ui_surface, font
 
     # Initialize visualizers
-    left = "data/Skimulator/Set1/Left_2025-03-02_15-06-29/"
-    right = "data/Skimulator/Set1/Right_2025-03-02_15-07-11/"
-    motion_visualizers.append(MotionVisualizer.MotionVisualizer(left + "Accelerometer.csv", left + "Gyroscope.csv", left + "Gravity.csv", True, udpHandler, deltaTime))
-    motion_visualizers.append(MotionVisualizer.MotionVisualizer(right + "Accelerometer.csv", right + "Gyroscope.csv", right + "Gravity.csv", False, udpHandler, deltaTime))
+    left = "data/Skimulator/Set3/Left/"
+    right = "data/Skimulator/Set3/Right/"
+    motion_visualizers.append(MotionVisualizer.MotionVisualizer(left, True, udpHandler, deltaTime))
+    motion_visualizers.append(MotionVisualizer.MotionVisualizer(right, False, udpHandler, deltaTime))
 
     # Get the maximum length of data
     for motion_visualizer in motion_visualizers:

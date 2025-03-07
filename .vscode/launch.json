@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Watchdog Auto-Restart",
+            "type": "python",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "program": "${workspaceFolder}/player.py",
+            "justMyCode": false,
+            "preLaunchTask": "watchdog-auto-restart"
+        },
+        {
             "name": "Python Debugger: playey.py",
             "type": "debugpy",
             "request": "launch",

@@ -8,17 +8,17 @@ import json
 from UDPHandler import UDPHandler
 
 class MotionVisualizer:
-    def __init__(self, accel_path, gyro_path, gravity_path, isLeftLeg, udpHandler, dt=0.01, rotation_scale=1.2, acc_scale=1.0):
+    def __init__(self, based_path, isLeftLeg, udpHandler, dt=0.01, rotation_scale=1.2, acc_scale=1.0):
         self.dt = dt  # Time step remains unchanged
+        self.based_path = based_path
         self.rotation_scale = rotation_scale  # Scale factor for yaw, pitch, and roll updates
-        self.acc_scale = acc_scale            # Scale factor for accelerometer updates
-        self.gravity_path = gravity_path      # Path to gravity CSV file (mandatory)
+        self.acc_scale = acc_scale            # Scale factor for accelerometer updates      # Path to gravity CSV file (mandatory)
         self.isLeftLeg = isLeftLeg
         self.udp_handler = udpHandler
         self.start_index = 0
         
         # Load the data files
-        self.load_data(accel_path, gyro_path, gravity_path)
+        self.load_data(self.based_path + "Accelerometer.csv", self.based_path + "Gyroscope.csv", self.based_path + "Gravity.csv", self.based_path + "Orientation.csv")
         self.reset_state()
 
     def set_start_index(self, index):
@@ -31,7 +31,7 @@ class MotionVisualizer:
     def start(self):
         pass
 
-    def load_data(self, accel_path, gyro_path, gravity_path):
+    def load_data(self, accel_path, gyro_path, gravity_path, orientation_path):
         # Load accelerometer data
         df_accel = pd.read_csv(accel_path)
         
@@ -40,7 +40,10 @@ class MotionVisualizer:
         
         # Load gravity data (mandatory)
         df_gravity = pd.read_csv(gravity_path)
-        
+
+        # Load gravity data (mandatory)
+        df_orientation = pd.read_csv(orientation_path)
+
         # Store time values
         self.time = df_accel["time"].values
         self.length = len(df_accel)
@@ -65,6 +68,14 @@ class MotionVisualizer:
         self.gravity_y = df_gravity["y"].values[:self.length]
         self.gravity_z = df_gravity["z"].values[:self.length]
         
+        self.orientation_x = df_orientation["qx"].values[:self.length]
+        self.orientation_y = df_orientation["qy"].values[:self.length]
+        self.orientation_z = df_orientation["qz"].values[:self.length]
+        self.orientation_w = df_orientation["qw"].values[:self.length]
+        self.orientation_roll = df_orientation["roll"].values[:self.length]
+        self.orientation_pitch = df_orientation["pitch"].values[:self.length]
+        self.orientation_yaw = df_orientation["yaw"].values[:self.length]
+
         print(f"Loaded gravity data from {gravity_path}")
 
     def get_length(self):
@@ -115,6 +126,17 @@ class MotionVisualizer:
             self.yaw   = ((self.yaw + 180) % 360) - 180
             self.pitch = ((self.pitch + 180) % 360) - 180
             self.roll  = ((self.roll + 180) % 360) - 180
+
+            # update from Orientation data
+            self.yaw = self.orientation_yaw[curr_index] * (180.0 / np.pi)
+            self.pitch = self.orientation_pitch[curr_index] * (180.0 / np.pi)
+            self.roll = self.orientation_roll[curr_index] * (180.0 / np.pi)
+            ##### note that we could have send it to unity directly:
+            #In Unity C# code
+            #Quaternion rotation = new Quaternion(qx, qy, qz, qw);
+            #transform.rotation = rotation;
+
+
 
         self.draw_cone_with_line()
         # Send leg data including gravity
