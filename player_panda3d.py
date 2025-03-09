@@ -49,6 +49,8 @@ class MotionVisualizerApp(ShowBase):
         self.init_visualizers()
         self.init_ui()
         
+        self.load_fbx_model("AlpineSkiBootA1Mat_right.fbx")
+
         # Set up update task
         self.taskMgr.add(self.update, "UpdateTask")
         
@@ -56,6 +58,35 @@ class MotionVisualizerApp(ShowBase):
         if self.ENABLE_GRID:
             self.create_grid()
     
+    def load_fbx_model(self, model_path):
+        try:
+            self.model = self.loader.loadModel(model_path)
+            if not self.model:
+                print(f"Failed to load FBX: {model_path}")
+                return
+            
+            self.model.setScale(0.001)  # Adjust size
+            self.model.setPos(0, 10, 0)  # Move it in front of the camera
+            self.model.reparentTo(self.render)  # Attach to scene
+            
+            print(f"Successfully loaded FBX: {model_path}")
+            
+            # Make sure the camera looks at it
+            self.camera.lookAt(self.model)
+            
+            # Setup lighting
+            self.setup_lighting()
+
+        except Exception as e:
+            print(f"Error loading FBX: {e}")
+
+    def setup_lighting(self):
+        light = DirectionalLight('light')
+        light.setColor((1, 1, 1, 1))
+        light_np = self.render.attachNewNode(light)
+        light_np.setHpr(-45, -45, 0)
+        self.render.setLight(light_np)
+
     def setup_inputs(self):
         """Set up keyboard controls"""
         self.accept("escape", self.exit_app)
